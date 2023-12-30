@@ -12,19 +12,19 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
-	// "github.com/subosito/gotenv"
+	"github.com/subosito/gotenv"
 )
 
-// func init() {
-// 	gotenv.Load()
-// }
+func init() {
+	gotenv.Load()
+}
 
 var (
-	dbUsername = "root"
-	dbPassword = "password"
-	dbHost     = "127.0.0.1"
-	dbPort     = "3306"
-	dbName     = "yapdoof"
+	dbUsername = os.Getenv("DB_USERNAME")
+	dbPassword = os.Getenv("DB_PASSWORD")
+	dbHost     = os.Getenv("DB_HOST")
+	dbPort     = os.Getenv("DB_PORT")
+	dbName     = os.Getenv("DB_NAME")
 )
 
 func main() {
@@ -39,7 +39,7 @@ func main() {
 
 	// Database connection string
 	// username:password@protocol(address)/dbname?param=value
-	dbConnString := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", dbUsername, dbPassword, dbHost, dbPort, dbName)
+	dbConnString := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", dbUsername, dbPassword, dbHost, dbPort, dbName)
 	// dbConnString := "username:password@tcp(localhost:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
 
 	// Open a connection to the database
