@@ -15,20 +15,20 @@ import (
 	"github.com/subosito/gotenv"
 )
 
-func init() {
-	gotenv.Load()
-}
+var dbUsername, dbPassword, dbHost, dbPort, dbName string
 
-var (
+func init() {
+	if err := gotenv.Load(".env"); err != nil {
+		fmt.Println("Error loading .env file:", err)
+	}
 	dbUsername = os.Getenv("DB_USERNAME")
 	dbPassword = os.Getenv("DB_PASSWORD")
-	dbHost     = os.Getenv("DB_HOST")
-	dbPort     = os.Getenv("DB_PORT")
-	dbName     = os.Getenv("DB_NAME")
-)
+	dbHost = os.Getenv("DB_HOST")
+	dbPort = os.Getenv("DB_PORT")
+	dbName = os.Getenv("DB_NAME")
+}
 
 func main() {
-
 	// List of tables to be ignored during backup
 	ignoredTables := []string{"api_logs"}
 
@@ -68,15 +68,16 @@ func main() {
 	// Start worker pool
 	for i := 0; i < 2; i++ { // Number of worker goroutines
 		wg.Add(1)
-		go func() {
+		go func(i int) {
 			defer wg.Done()
 			for {
 				select {
 				case tableName := <-tableChan:
-					// Backup each table if it is not in the ignoredTables list
+					log.Printf("running worker %d", i)
 
+					// Backup each table if it is not in the ignoredTables list
 					if !contains(ignoredTables, tableName) && len(tableName) > 0 {
-						err := backupTable(db, tableName, outputPath)
+						err := backupTable(tableName, outputPath)
 						if err != nil {
 							log.Printf("Error backing up table %s: %s\n", tableName, err)
 						} else {
@@ -89,7 +90,7 @@ func main() {
 					return
 				}
 			}
-		}()
+		}(i)
 	}
 
 	// Send table names to the worker pool
@@ -98,13 +99,14 @@ func main() {
 		tableChan <- table
 	}
 
-	// Wait for all worker goroutines to finish
+	// Wait for wg2  to finish
 	wg2.Wait()
 
-	stopChan <- true
-	stopChan <- true
+	for i := 0; i < 2; i++ { // Number of worker goroutines
+		stopChan <- true // terminate a worker
+	}
 
-	// Wait for all worker goroutines to finish
+	// Wait for wg to finish
 	wg.Wait()
 
 	// Create a Zip archive
@@ -117,7 +119,7 @@ func main() {
 }
 
 // backupTable backs up a given table to a file using mysqldump
-func backupTable(db *sqlx.DB, tableName, outputPath string) error {
+func backupTable(tableName, outputPath string) error {
 	// Create a file for each table backup
 	filePath := fmt.Sprintf("%s%s_backup.sql", outputPath, tableName)
 	file, err := os.Create(filePath)
